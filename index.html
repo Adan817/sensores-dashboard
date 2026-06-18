@@ -64,6 +64,22 @@
   select { padding: 7px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; background: white; cursor: pointer; min-width: 220px; }
   
   .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px; }
+
+  /* Plant filter */
+  .filter-wrap { position: relative; }
+  .btn-filter { display: flex; align-items: center; gap: 6px; }
+  .btn-filter .filter-badge { background: white; color: #2c5282; border-radius: 10px; font-size: 11px; font-weight: 700; padding: 1px 6px; min-width: 18px; text-align: center; }
+  .filter-dropdown { display: none; position: absolute; top: calc(100% + 6px); left: 0; background: white; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 200; min-width: 240px; padding: 10px 0; }
+  .filter-dropdown.open { display: block; }
+  .filter-dropdown-header { display: flex; align-items: center; justify-content: space-between; padding: 6px 14px 10px; border-bottom: 1px solid #f1f5f9; }
+  .filter-dropdown-header span { font-size: 12px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.4px; }
+  .filter-actions { display: flex; gap: 8px; }
+  .filter-action-link { font-size: 11px; color: #2c5282; cursor: pointer; text-decoration: underline; background: none; border: none; padding: 0; }
+  .filter-group-label { padding: 8px 14px 4px; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+  .filter-item { display: flex; align-items: center; gap: 8px; padding: 5px 14px; cursor: pointer; }
+  .filter-item:hover { background: #f8fafc; }
+  .filter-item input[type=checkbox] { width: 14px; height: 14px; cursor: pointer; accent-color: #2c5282; }
+  .filter-item label { font-size: 13px; color: #334155; cursor: pointer; }
   .plant-card { background: white; border-radius: 10px; padding: 16px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
   .plant-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9; }
   .plant-name { font-size: 15px; font-weight: 600; color: #1e293b; }
@@ -189,6 +205,21 @@
     <div class="week-selector">
       <label>Semana:</label>
       <select id="current-week"></select>
+      <div class="filter-wrap">
+        <button class="btn btn-outline btn-filter" id="btn-filter-plants">
+          &#9776; Filtrar plantas <span class="filter-badge" id="filter-badge" style="display:none"></span>
+        </button>
+        <div class="filter-dropdown" id="filter-dropdown">
+          <div class="filter-dropdown-header">
+            <span>Plantas</span>
+            <div class="filter-actions">
+              <button class="filter-action-link" id="filter-select-all">Todas</button>
+              <button class="filter-action-link" id="filter-clear">Limpiar</button>
+            </div>
+          </div>
+          <div id="filter-checkboxes"></div>
+        </div>
+      </div>
     </div>
     <div class="summary-strip" id="summary-strip"></div>
     <div class="cards-grid" id="cards-grid"></div>
@@ -438,6 +469,94 @@ function bindTabs() {
   });
 }
 
+// Plant filter state: null = show all, Set = show only selected
+let selectedPlants = null;
+
+function buildFilterDropdown(plants) {
+  const container = document.getElementById('filter-checkboxes');
+  if (!container) return;
+  container.innerHTML = '';
+  const groups = {};
+  plants.forEach(p => {
+    const g = p.group || 'Otras';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(p.name);
+  });
+  Object.entries(groups).forEach(([group, names]) => {
+    const gl = document.createElement('div');
+    gl.className = 'filter-group-label';
+    gl.textContent = group;
+    container.appendChild(gl);
+    names.forEach(name => {
+      const item = document.createElement('div');
+      item.className = 'filter-item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.id = 'flt_' + name;
+      cb.value = name;
+      cb.checked = !selectedPlants || selectedPlants.has(name);
+      cb.onchange = () => applyPlantFilter();
+      const lbl = document.createElement('label');
+      lbl.htmlFor = 'flt_' + name;
+      lbl.textContent = name.replace(/\n/g, ' ');
+      item.appendChild(cb); item.appendChild(lbl);
+      container.appendChild(item);
+    });
+  });
+}
+
+function applyPlantFilter() {
+  const checks = document.querySelectorAll('#filter-checkboxes input[type=checkbox]');
+  const all = [...checks];
+  const checked = all.filter(c => c.checked);
+  if (checked.length === all.length || checked.length === 0) {
+    selectedPlants = null;
+  } else {
+    selectedPlants = new Set(checked.map(c => c.value));
+  }
+  updateFilterBadge();
+  renderCurrent();
+}
+
+function updateFilterBadge() {
+  const badge = document.getElementById('filter-badge');
+  const btn = document.getElementById('btn-filter-plants');
+  if (!badge) return;
+  if (selectedPlants && selectedPlants.size > 0) {
+    badge.textContent = selectedPlants.size;
+    badge.style.display = 'inline-block';
+    btn.style.background = '#2c5282';
+    btn.style.color = 'white';
+  } else {
+    badge.style.display = 'none';
+    btn.style.background = '';
+    btn.style.color = '';
+  }
+}
+
+function initFilterUI() {
+  const btn = document.getElementById('btn-filter-plants');
+  const dropdown = document.getElementById('filter-dropdown');
+  if (!btn || !dropdown) return;
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    dropdown.classList.toggle('open');
+  };
+  document.addEventListener('click', (e) => {
+    if (!dropdown.contains(e.target) && e.target !== btn) {
+      dropdown.classList.remove('open');
+    }
+  });
+  document.getElementById('filter-select-all').onclick = () => {
+    document.querySelectorAll('#filter-checkboxes input[type=checkbox]').forEach(c => c.checked = true);
+    applyPlantFilter();
+  };
+  document.getElementById('filter-clear').onclick = () => {
+    document.querySelectorAll('#filter-checkboxes input[type=checkbox]').forEach(c => c.checked = false);
+    applyPlantFilter();
+  };
+}
+
 function populateSelects() {
   const wkSel = document.getElementById('current-week');
   wkSel.innerHTML = '';
@@ -459,6 +578,8 @@ function populateSelects() {
   });
   histSel.onchange = renderHistory;
   plantDetailSel.onchange = renderPlantDetail;
+  if (lastSheet) buildFilterDropdown(lastSheet.plants);
+  initFilterUI();
 }
 
 function renderCurrent() {
@@ -482,7 +603,8 @@ function renderCurrent() {
   `;
   const grid = document.getElementById('cards-grid');
   grid.innerHTML = '';
-  sheet.plants.forEach(p => {
+  const visiblePlants = selectedPlants ? sheet.plants.filter(p => selectedPlants.has(p.name)) : sheet.plants;
+  visiblePlants.forEach(p => {
     const card = document.createElement('div');
     card.className = 'plant-card';
     const groupClass = (p.group || '').replace(' ', '-');
