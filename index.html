@@ -95,10 +95,13 @@
   .sensor-pill { position: relative; }
   .sensor-pill.ok { background: #dcfce7; color: #166534; }
   .sensor-pill.bad { background: #fee2e2; color: #991b1b; }
-  .sensor-location-list { margin-bottom: 6px; }
+  .sensor-location-list { margin-bottom: 6px; display: none; }
+  .sensor-location-list.open { display: block; }
   .sensor-loc-row { display: flex; gap: 6px; font-size: 11px; padding: 2px 0; border-bottom: 1px solid #f1f5f9; }
-  .sensor-loc-name { font-weight: 600; color: #475569; min-width: 50px; }
+  .sensor-loc-name { font-weight: 600; color: #475569; min-width: 52px; }
   .sensor-loc-desc { color: #64748b; }
+  .loc-toggle { font-size: 10px; color: #94a3b8; cursor: pointer; user-select: none; margin-left: 4px; }
+  .loc-toggle:hover { color: #2c5282; }
   .sensor-pill.na { background: #f1f5f9; color: #cbd5e0; }
   
   .temp-row { display: flex; gap: 8px; margin-bottom: 6px; }
@@ -699,8 +702,9 @@ function renderCurrent() {
       <div class="section-label">Coms Status</div>
       <div class="sensor-row">${pills(p.status)}</div>
       ${Object.keys(sensorLocs).length > 0 ? `
-      <div class="section-label">Ubicación de Sensores</div>
+      <div class="section-label">Ubicación de Sensores <span class="loc-toggle" onclick="this.closest('.plant-card').querySelector('.sensor-location-list').classList.toggle('open'); this.textContent = this.closest('.plant-card').querySelector('.sensor-location-list').classList.contains('open') ? '▲ ocultar' : '▼ ver'">▼ ver</span></div>
       <div class="sensor-location-list">${[...SENSORS_Q, ...SENSORS_T].filter(s => sensorLocs[s]).map(s => `<div class="sensor-loc-row"><span class="sensor-loc-name">${s}</span><span class="sensor-loc-desc">${sensorLocs[s]}</span></div>`).join('')}</div>` : ''}
+
       ${tempBoxes ? `<div class="section-label">Temperatura</div><div class="temp-row">${tempBoxes}</div>` : ''}
       <div class="section-label">Observaciones</div>
       <textarea class="obs-area" data-week="${sheet.name}" data-plant="${p.name}" placeholder="Sin observaciones">${obs || ''}</textarea>
